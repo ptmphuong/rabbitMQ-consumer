@@ -1,8 +1,11 @@
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DeliverCallback;
+import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -10,9 +13,9 @@ import java.util.logging.Logger;
 public class Worker implements Runnable{
     private final static String QUEUE_NAME = "LiftInfo";
     private Connection connection;
-    private ConcurrentHashMap<String, String> liftInfoMap;
+    private ConcurrentHashMap<Integer, List<LiftInfo>> liftInfoMap;
 
-    public Worker(Connection connection, ConcurrentHashMap<String, String> liftInfoMap) {
+    public Worker(Connection connection, ConcurrentHashMap<Integer, List<LiftInfo>> liftInfoMap) {
         this.connection = connection;
         this.liftInfoMap = liftInfoMap;
     }
@@ -28,7 +31,7 @@ public class Worker implements Runnable{
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), "UTF-8");
-                this.liftInfoMap.put(message, "some value");
+                processMessage(message);
                 System.out.println( "Callback thread ID = " + Thread.currentThread().getId() + " Received '" + message + "'");
                 // do work
                 channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
@@ -38,5 +41,17 @@ public class Worker implements Runnable{
         } catch (IOException ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    private void processMessage(String message) {
+        JSONObject jsonObject = new JSONObject(message);
+        Integer skierID = jsonObject.getInt("skierID");
+        Integer liftID = jsonObject.getInt("liftID");
+        Integer time = jsonObject.getInt("time");
+        LiftInfo liftInfo = new LiftInfo(liftID, time);
+
+        List<LiftInfo> liftInfoList = this.liftInfoMap.getOrDefault(skierID, new ArrayList<>());
+        liftInfoList.add(liftInfo);
+        this.liftInfoMap.put(skierID, liftInfoList);
     }
 }
