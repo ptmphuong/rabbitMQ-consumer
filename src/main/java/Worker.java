@@ -2,7 +2,6 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DeliverCallback;
 import org.json.JSONObject;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +11,7 @@ import java.util.logging.Logger;
 
 public class Worker implements Runnable{
     private final static String QUEUE_NAME = "LiftInfo";
+    private final static int CHECK_ID = -1;
     private Connection connection;
     private ConcurrentHashMap<Integer, List<LiftInfo>> liftInfoMap;
 
@@ -32,7 +32,6 @@ public class Worker implements Runnable{
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), "UTF-8");
                 processMessage(message);
-                System.out.println( "Callback thread ID = " + Thread.currentThread().getId() + " Received '" + message + "'");
                 // do work
                 channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
             };
@@ -46,6 +45,12 @@ public class Worker implements Runnable{
     private void processMessage(String message) {
         JSONObject jsonObject = new JSONObject(message);
         Integer skierID = jsonObject.getInt("skierID");
+
+        if (skierID == CHECK_ID) {
+            doCheck();
+            return;
+        }
+
         Integer liftID = jsonObject.getInt("liftID");
         Integer time = jsonObject.getInt("time");
         LiftInfo liftInfo = new LiftInfo(liftID, time);
@@ -53,5 +58,12 @@ public class Worker implements Runnable{
         List<LiftInfo> liftInfoList = this.liftInfoMap.getOrDefault(skierID, new ArrayList<>());
         liftInfoList.add(liftInfo);
         this.liftInfoMap.put(skierID, liftInfoList);
+
+        System.out.println( "Callback thread ID = " + Thread.currentThread().getId() + " Received '" + message + "'");
+    }
+
+    private void doCheck() {
+        System.out.println("Check ID - printing out info");
+        System.out.println(this.liftInfoMap);
     }
 }
