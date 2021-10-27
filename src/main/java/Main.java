@@ -3,24 +3,34 @@ import com.rabbitmq.client.ConnectionFactory;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.*;
 import java.util.logging.Logger;
 
 public class Main {
 
     private final static Logger logger = Logger.getLogger(Main.class.getName());
-    private static String HOST = "18.206.249.74";
-    private static String RABBIT_USERNAME = "carrot";
-    private static String RABBIT_PASSWORD = "carrot";
+    private static String HOST;
+    private static String RABBIT_USERNAME;
+    private static String RABBIT_PASSWORD;
     private static int NUM_THREADS = 5;
     private static ExecutorService executorService;
 
-    public static void main(String[] args) throws IOException, TimeoutException {
+    public static void main(String[] args) throws IOException {
         logger.info("Start main. Initialize values");
+
+        setProperty();
+        try {
+            Integer num_threads = Integer.valueOf(args[0]);
+            NUM_THREADS = num_threads;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        System.out.println(NUM_THREADS);
         NUM_THREADS = 5;
 
         executorService = Executors.newFixedThreadPool(NUM_THREADS);
-
         ConnectionFactory connectionFactory = new ConnectionFactory();
         final Connection connection = setConnection(connectionFactory);
 
@@ -31,6 +41,13 @@ public class Main {
             Worker worker = new Worker(connection, liftInfoMap);
             executorService.submit(worker);
         }
+    }
+
+    private static void setProperty() throws IOException {
+        Properties properties = ReadProperty.load();
+        HOST = properties.getProperty("ip");
+        RABBIT_USERNAME = properties.getProperty("rabbit_username");
+        RABBIT_PASSWORD = properties.getProperty("rabbit_password");
     }
 
     private static Connection setConnection(ConnectionFactory connectionFactory) {

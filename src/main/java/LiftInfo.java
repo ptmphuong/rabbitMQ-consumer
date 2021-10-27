@@ -16,10 +16,4 @@ public class LiftInfo {
                 ", time=" + time +
                 '}';
     }
-
-    public static void main(String[] args) {
-        Properties properties = ReadProperty.load();
-        String ip = properties.getProperty("ip");
-        System.out.println(ip);
-    }
 }
