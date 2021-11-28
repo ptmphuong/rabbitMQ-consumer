@@ -1,4 +1,7 @@
 Worker.class
 Main.class
 LiftInfo.class
+DBCPDataSource.class
 ReadProperty.class
+LiftInfoDao.class
+DataSource.class

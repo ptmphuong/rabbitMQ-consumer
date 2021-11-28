@@ -1,23 +1,21 @@
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DeliverCallback;
-import org.json.JSONObject;
+
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Worker implements Runnable{
     private final static String QUEUE_NAME = "LiftInfo";
-    private final static int CHECK_ID = -1;
     private Connection connection;
-    private ConcurrentHashMap<Integer, List<LiftInfo>> liftInfoMap;
+    private QueryBuilder queryBuilder;
+    private String dbName;
 
-    public Worker(Connection connection, ConcurrentHashMap<Integer, List<LiftInfo>> liftInfoMap) {
+    public Worker(Connection connection, QueryBuilder queryBuilder, String dbName) {
         this.connection = connection;
-        this.liftInfoMap = liftInfoMap;
+        this.queryBuilder = queryBuilder;
+        this.dbName = dbName;
     }
 
     @Override
@@ -31,39 +29,25 @@ public class Worker implements Runnable{
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), "UTF-8");
-                processMessage(message);
-                // do work
                 channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+                processMessage(message);
             };
             // process messages
             channel.basicConsume(QUEUE_NAME, false, deliverCallback, consumerTag -> { });
         } catch (IOException ex) {
-            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Consumer.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
     private void processMessage(String message) {
-        JSONObject jsonObject = new JSONObject(message);
-        Integer skierID = jsonObject.getInt("skierID");
-
-        if (skierID == CHECK_ID) {
-            doCheck();
-            return;
+        LiftInfo liftInfo = LiftInfo.fromJsonStr(message);
+        if (this.dbName.equals(SqlScript.SKIERS_TABLE_NAME)) {
+            this.queryBuilder.addInsertQuery(liftInfo.getSkiersDBValue());
+        } else if (this.dbName.equals(SqlScript.RESORTS_TABLE_NAME)) {
+            this.queryBuilder.addInsertQuery(liftInfo.getResortsDBValue());
         }
-
-        Integer liftID = jsonObject.getInt("liftID");
-        Integer time = jsonObject.getInt("time");
-        LiftInfo liftInfo = new LiftInfo(liftID, time);
-
-        List<LiftInfo> liftInfoList = this.liftInfoMap.getOrDefault(skierID, new ArrayList<>());
-        liftInfoList.add(liftInfo);
-        this.liftInfoMap.put(skierID, liftInfoList);
-
-        System.out.println( "Callback thread ID = " + Thread.currentThread().getId() + " Received '" + message + "'");
+//        System.out.println( "Callback thread ID = " + Thread.currentThread().getId() + " Received '" + message + "'");
     }
 
-    private void doCheck() {
-        System.out.println("Check ID - printing out info");
-        System.out.println(this.liftInfoMap);
-    }
+
 }
