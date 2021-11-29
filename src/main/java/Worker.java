@@ -8,6 +8,8 @@ import java.util.logging.Logger;
 
 public class Worker implements Runnable{
     private final static String QUEUE_NAME = "LiftInfo";
+    private final static String EXCHANGE_NAME = "LiftInfoExchange";
+
     private Connection connection;
     private QueryBuilder queryBuilder;
     private String dbName;
@@ -16,16 +18,19 @@ public class Worker implements Runnable{
         this.connection = connection;
         this.queryBuilder = queryBuilder;
         this.dbName = dbName;
+
     }
 
     @Override
     public void run() {
         try {
-            final Channel channel = connection.createChannel();
-            channel.queueDeclare(QUEUE_NAME, true, false, false, null);
-            // max one message per receiver
-            channel.basicQos(1);
             System.out.println(" [*] Thread waiting for messages. To exit press CTRL+C");
+            final Channel channel = connection.createChannel();
+            channel.exchangeDeclare(EXCHANGE_NAME, "fanout");
+//            String qName = channel.queueDeclare().getQueue();
+            channel.queueDeclare(dbName, true, false, false, null);
+            channel.queueBind(dbName, EXCHANGE_NAME, "");
+            channel.basicQos(1); // max one message per receiver
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), "UTF-8");
@@ -33,7 +38,7 @@ public class Worker implements Runnable{
                 processMessage(message);
             };
             // process messages
-            channel.basicConsume(QUEUE_NAME, false, deliverCallback, consumerTag -> { });
+            channel.basicConsume(dbName, false, deliverCallback, consumerTag -> { });
         } catch (IOException ex) {
             Logger.getLogger(Consumer.class.getName()).log(Level.SEVERE, null, ex);
         }

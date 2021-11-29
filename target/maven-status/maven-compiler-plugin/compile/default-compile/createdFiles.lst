@@ -1,7 +1,10 @@
-Worker.class
-Main.class
+Consumer.class
+QueryBuilder.class
+ConsumerResort.class
 LiftInfo.class
-DBCPDataSource.class
-ReadProperty.class
 LiftInfoDao.class
 DataSource.class
+Worker.class
+ConsumerSkier.class
+SqlScript.class
+ReadProperty.class
